@@ -1,0 +1,17 @@
+---
+spring:
+  profiles: default
+  application:
+      name: customer
+  redis:
+    host: localhost
+    port: 6379
+
+---
+spring:
+  profiles: aws
+  application:
+    name: customer
+  redis:
+    host: aws_customer
+    port: 6379
