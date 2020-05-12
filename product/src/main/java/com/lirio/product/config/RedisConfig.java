@@ -1,44 +1,54 @@
 package com.lirio.product.config;
 
 import com.lirio.product.Product;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.connection.ReactiveKeyCommands;
 import org.springframework.data.redis.connection.ReactiveRedisConnectionFactory;
-import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
+import org.springframework.data.redis.connection.ReactiveStringCommands;
+import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.serializer.Jackson2JsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
 import org.springframework.data.redis.serializer.StringRedisSerializer;
 
+import javax.annotation.PreDestroy;
+
 @Configuration
 public class RedisConfig {
 
-    //@Bean
-    public ReactiveRedisConnectionFactory reactiveRedisConnectionFactory(@Value("${spring.redis.host}") String host,
-                                                                         @Value("${spring.redis.port}") final int port) {
-        return new LettuceConnectionFactory(host, port);
-    }
-
-//    @Bean
-//    public ReactiveRedisTemplate<String, String> reactiveRedisTemplateString
-//            (ReactiveRedisConnectionFactory connectionFactory) {
-//        return new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
-//    }
+    @Autowired
+    RedisConnectionFactory factory;
 
     @Bean
-    public ReactiveRedisTemplate<String, Product> reactiveRedisTemplate(
-            @Value("${spring.redis.host}") String host,
-            @Value("${spring.redis.port}") final int port) {
+    public ReactiveRedisTemplate<String, Product> reactiveRedisTemplate(ReactiveRedisConnectionFactory factory) {
+        Jackson2JsonRedisSerializer<Product> serializer = new Jackson2JsonRedisSerializer<>(Product.class);
+        RedisSerializationContext.RedisSerializationContextBuilder<String, Product> builder = RedisSerializationContext.newSerializationContext(new StringRedisSerializer());
+        RedisSerializationContext<String, Product> context = builder.value(serializer)
+                .build();
+        return new ReactiveRedisTemplate<>(factory, context);
+    }
 
-        StringRedisSerializer keySerializer = new StringRedisSerializer();
-        Jackson2JsonRedisSerializer<Product> valueSerializer =
-                new Jackson2JsonRedisSerializer<>(Product.class);
-        RedisSerializationContext.RedisSerializationContextBuilder<String, Product> builder =
-                RedisSerializationContext.newSerializationContext(keySerializer);
-        RedisSerializationContext<String, Product> context =
-                builder.value(valueSerializer).build();
+    @Bean
+    public ReactiveRedisTemplate<String, String> reactiveRedisTemplateString(ReactiveRedisConnectionFactory connectionFactory) {
+        return new ReactiveRedisTemplate<>(connectionFactory, RedisSerializationContext.string());
+    }
 
-        return new ReactiveRedisTemplate<>(reactiveRedisConnectionFactory(host, port), context);
+    @Bean
+    public ReactiveKeyCommands keyCommands(final ReactiveRedisConnectionFactory reactiveRedisConnectionFactory) {
+        return reactiveRedisConnectionFactory.getReactiveConnection()
+                .keyCommands();
+    }
+
+    @Bean
+    public ReactiveStringCommands stringCommands(final ReactiveRedisConnectionFactory reactiveRedisConnectionFactory) {
+        return reactiveRedisConnectionFactory.getReactiveConnection()
+                .stringCommands();
+    }
+
+    @PreDestroy
+    public void cleanRedis() {
+        factory.getConnection().flushDb();
     }
 }
