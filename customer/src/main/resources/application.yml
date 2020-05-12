@@ -13,5 +13,5 @@ spring:
   application:
     name: customer
   redis:
-    host: aws_customer
+    host: redis
     port: 6379
